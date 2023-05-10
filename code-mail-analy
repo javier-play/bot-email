@@ -1,0 +1,56 @@
+!pip install nltk openai twilio
+
+import nltk
+import openai
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from flask import Flask, request
+from twilio.twiml.messaging_response import MessagingResponse
+from twilio.rest import Client
+
+nltk.download('punkt')
+nltk.download('stopwords')
+openai.api_key = "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"
+
+def encontrar_palabras_negativas(texto):
+  negativas = ["odio", "enojo", "tristeza", "preocupación"]
+  stop_words = set(stopwords.words('spanish'))
+  palabras = word_tokenize(texto.lower())
+  palabras_filtradas = [palabra for palabra in palabras if not palabra in stop_words]
+  palabras_negativas = [palabra for palabra in palabras_filtradas if palabra in negativas]
+  return palabras_negativas
+
+def corregir_gramatica(texto):
+  model_engine = "text-davinci-003"
+  prompt = (f"Ofrece alternativas a la siguiente palabra u oración en español:\n{texto}\n")
+  completions = openai.Completion.create(
+      engine=model_engine,
+      prompt=prompt,
+      max_tokens=1024,
+      n=1,
+      stop=None,
+      temperature=0.6,
+  )
+  message = completions.choices[0].text.strip()
+  return message
+
+def procesar_correo(cuerpo_correo):
+  sugerencias = []
+  palabras_negativas = encontrar_palabras_negativas(cuerpo_correo)
+  if palabras_negativas:
+    sugerencias.append("El cuerpo del correo electrónico contiene palabras negativas:")
+    for palabra in palabras_negativas:
+      sugerencias.append(palabra)
+      correccion = corregir_gramatica(palabra)
+      sugerencias.append(f"'{palabra}' puede ser reemplazada por '{correccion}'")
+  else:
+    sugerencias.append("El cuerpo del correo electrónico no contiene palabras negativas.")
+  return sugerencias
+
+def enviar_mensaje(mensaje, to):
+  account_sid = 'TU_ACCOUNT_SID'
+  auth_token = 'TU_AUTH_TOKEN'
+  client = Client(account_sid, auth_token)
+  message = client.messages.create(
+      body=mensaje,
+      from_='whatsapp:+TU_NUMERO_DE_TELEF
